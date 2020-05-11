@@ -30,6 +30,7 @@
 #include "gestures.h"
 #include "mtouch.h"
 #include "trig.h"
+#include <sys/time.h>
 //#define DEBUG_GESTURES 1
 #ifdef DEBUG_GESTURES
 # define LOG_DEBUG_GESTURES LOG_DEBUG
@@ -667,6 +668,7 @@ int get_button_for_dir(const struct MConfigSwipe* cfg_swipe, int dir){
 /* It's called 'unsafe' because caller have to check that all conditions required to
  * trigger swipe were met.
  */
+static long int last_swipe_time = 0;
 static int trigger_swipe_unsafe(struct Gestures* gs,
 			const struct MConfig* cfg, const struct MConfigSwipe* cfg_swipe,
 			const struct Touch* touches[4], int touches_count,
@@ -752,7 +754,20 @@ static int trigger_swipe_unsafe(struct Gestures* gs,
 		else
 			timerclear(&tv_tmp); // wait for gesture end
 		gs->move_dist = MODVAL(gs->move_dist, cfg_swipe->dist);
-		trigger_button_click(gs, button - 1, &tv_tmp);
+
+		int pass = 1;
+		if(button >= 20) {
+			struct timeval tv;  
+   			gettimeofday(&tv,NULL);  
+  			long int current_time =  tv.tv_sec * 1000 + tv.tv_usec / 1000;  //ms
+			long int delta = current_time - last_swipe_time;
+			last_swipe_time = current_time;
+			if(delta < 500) {
+				pass = 0;
+			}
+		}
+		if(pass)
+			trigger_button_click(gs, button - 1, &tv_tmp);
 	}
 	LOG_DEBUG_GESTURES("trigger_swipe_button: swiping %f in direction %d (at %f of %d)\n",
 		dist, dir, gs->move_dist, cfg_swipe->dist);
